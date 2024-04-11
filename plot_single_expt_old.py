@@ -5,12 +5,6 @@ import numpy as np
 
 # %%
 
-data = np.load("results/opto_on/data.npz")
-# data = np.load(sys.argv[1])
-
-# %%
-# from ratbarrelv21_updated_cleo.py
-
 
 def plot_spiking_and_stim(
     excitespikes,

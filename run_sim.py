@@ -25,6 +25,7 @@ exp_name = "opto_on" if opto_on else "opto_off"
 results_dir = Path(f"results/{exp_name}")
 if not results_dir.exists():
     results_dir.mkdir(parents=True)
+generate_video = False
 
 
 po = 0.1
@@ -53,28 +54,8 @@ g = 0.1
 # ni is handled N_incoming
 # N_outgoing (?)
 
+# %%
 # define the equations and variables for the excitatory and inhibitory neurons
-stimulus_exc = b2.TimedArray(
-    np.hstack(
-        [
-            [
-                [
-                    2000
-                    * (
-                        np.floor((index) / 100.0) > 44
-                        and np.floor((index) / 100.0) < 56
-                        and ((index) % 100.0) > 44
-                        and ((index) % 100.0) < 56
-                    )
-                ],
-                [0],
-            ]
-            for index in range(numofexcneur)
-        ]
-    ),
-    dt=2 * b2.ms,
-)
-
 exceqs = """dv/dt = (I_summed - v/gexc)/C : volt
 C: farad 
 I_summed=Iext+Isynext+Isynweakext+Isyninh+I_default+I_opto: amp
@@ -146,6 +127,21 @@ inhneurons.ginh = np.ones(numofinhneur) * (0.2) * b2.ohm
 #                                dt=2*ms)
 # inhneurons.Iext = 'stimulus_inh(t)*amp'
 inhneurons.excthreshold = np.random.uniform(0, 1, numofinhneur) * b2.volt
+
+# %%
+# configure initial stimulus
+stim_arr = np.zeros((2, numofexcneur))  # T x N
+i_exc = np.arange(numofexcneur)
+dist_from_center = np.sqrt(exciteneurons.x_**2 + exciteneurons.y_**2) * b2.meter
+i2stim = dist_from_center < 0.5 * b2.mm
+print(f"Number of neurons stimulated: {np.sum(i2stim)}")
+
+stim_arr[0, i2stim] = 500
+
+stimulus_exc = b2.TimedArray(stim_arr, dt=2 * b2.ms)
+
+# %%
+# synapses
 # 84-88 defines the weak excitatory synapses
 sexcweak = b2.Synapses(
     exciteneurons,
@@ -244,11 +240,11 @@ np.delete(incoming_connections, np.where(incoming_connections == 0))
 simple_opsin = cleo.opto.ProportionalCurrentOpsin(
     name="simple_opsin",
     # handpicked gain to make firing rate roughly comparable to EIF
-    I_per_Irr=-240000000000 * b2.amp,
+    I_per_Irr=-2400000 * b2.amp,
 )
 fiber = cleo.light.Light(
     coords=(1.75, 1.75, 0) * b2.mm,
-    light_model=cleo.light.fiber473nm(),
+    light_model=cleo.light.fiber473nm(R0=0.2 * b2.mm),
     name="fiber",
 )
 
@@ -308,7 +304,7 @@ class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
         i, t, z_t = state_dict["Probe"]["spikes"]
         if np.size(i) >= 3:
             if opto_on:
-                opto_intensity = 5
+                opto_intensity = 0.1
             else:
                 opto_intensity = 0
         else:
@@ -322,22 +318,15 @@ class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
 
 sim.set_io_processor(ReactiveLoopOpto())
 
-###
-
-# from cleo.viz import VideoVisualizer
-
-# vv = VideoVisualizer(dt=.5 * ms, devices_to_plot="all")
-# sim.inject(vv, exciteneurons)
+if generate_video:
+    vv = cleo.viz.VideoVisualizer(dt=0.5 * b2.ms, devices_to_plot=[probe, fiber])
+    sim.inject(vv, exciteneurons)
 
 
-####
+# %%
 
 
 sim.run(15 * b2.ms)
-
-
-####
-
 
 # fig, ax = plt.subplots()
 # ax.plot(excitespikes.t/msecond, excitespikes.i, '|',ms=.2,lw=1)
@@ -346,10 +335,10 @@ sim.run(15 * b2.ms)
 # plt.close()
 # print(sim.network.t)
 
-####
+# %%
 
-stim_t_extended = stim_t
-stim_t_extended.append(np.max(stim_t) + stim_t[1] - stim_t[0])
+stim_t_extended = np.copy(stim_t)
+stim_t_extended = np.append(stim_t_extended, np.max(stim_t) + stim_t[1] - stim_t[0])
 spike_counts, bin_edges = np.histogram(excitespikes.t / b2.ms, bins=stim_t_extended)
 
 indexes_half_radius = []
@@ -364,6 +353,7 @@ for i in range(numofexcneur):
     ) < 0.5 * b2.mm:
         indexes_half_radius.append(i)
 
+# %%
 np.savez_compressed(
     results_dir / "data.npz",
     t_spk_ms=excitespikes.t / b2.ms,
@@ -375,13 +365,16 @@ np.savez_compressed(
     spike_vals=spike_vals,
     stim_t_extended=stim_t_extended,
     indexes_half_radius=indexes_half_radius,
+    numofexcneur=numofexcneur,
+    exc_x_mm=exciteneurons.x / b2.mm,
+    exc_y_mm=exciteneurons.y / b2.mm,
 )
 
 # %%
-# plot results
-from plot_single_expt_old import plot_all
+# plot results (old)
+# from plot_single_expt_old import plot_all
 
-# plot_all_old(
+# plot_all(
 #     excitestate,
 #     excitespikes,
 #     numofexcneur,
@@ -394,4 +387,16 @@ from plot_single_expt_old import plot_all
 # )
 
 # %%
-# plot_all()
+# plot results
+from plot_single_expt import plot_all
+
+plot_all(results_dir)
+
+# %%
+if generate_video:
+    from matplotlib import animation as animation
+
+    fiber.max_Irr0_mW_per_mm2_viz = 5
+    ani = vv.generate_Animation(plotargs, slowdown_factor=1000, figsize=[16, 12])
+    ani.save(f"{results_dir}/100x100_neurons_15ms_animation.gif")
+    plt.close()
