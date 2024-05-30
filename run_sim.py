@@ -20,7 +20,7 @@ cleo.utilities.style_plots_for_paper()
 # In[2]:
 
 # Lines 89-27 define default values. 9-16 are used in the generation of synapses
-opto_on = True
+opto_on = False
 exp_name = "opto_on" if opto_on else "opto_off"
 results_dir = Path(f"results/{exp_name}")
 if not results_dir.exists():
@@ -74,7 +74,8 @@ excthreshold: volt"""
 
 inheqs = """dv/dt = (Iext + Isynext - v/ginh)/C :volt
 C: farad
-Iext: amp
+# Iext = stimulus_inh(t,i)*amp : amp
+Iext : amp
 Isynext: amp
 Isyninh : amp
 ginh: ohm
@@ -130,15 +131,28 @@ inhneurons.excthreshold = np.random.uniform(0, 1, numofinhneur) * b2.volt
 
 # %%
 # configure initial stimulus
-stim_arr = np.zeros((2, numofexcneur))  # T x N
-i_exc = np.arange(numofexcneur)
+stim_radius = 0.5 * b2.mm
+stim_arr_exc = np.zeros((2, numofexcneur))  # T x N
 dist_from_center = np.sqrt(exciteneurons.x_**2 + exciteneurons.y_**2) * b2.meter
-i2stim = dist_from_center < 0.5 * b2.mm
-print(f"Number of neurons stimulated: {np.sum(i2stim)}")
+i2stim = dist_from_center < stim_radius
+print(f"Number of excitatory neurons stimulated: {np.sum(i2stim)}")
 
-stim_arr[0, i2stim] = 500
+stim_level = 675
+stim_arr_exc[0, i2stim] = stim_level
+print(f"stimulating at {stim_level} amps")
 
-stimulus_exc = b2.TimedArray(stim_arr, dt=2 * b2.ms)
+stimulus_exc = b2.TimedArray(stim_arr_exc, dt=2 * b2.ms)
+
+
+# stim_arr_inh = np.zeros((2, numofinhneur))  # T x N
+# dist_from_center = np.sqrt(inhneurons.x_**2 + inhneurons.y_**2) * b2.meter
+# i2stim = dist_from_center < stim_radius
+# print(f"Number of inhibitory neurons stimulated: {np.sum(i2stim)}")
+
+# stim_arr_inh[0, i2stim] = 500
+
+# stimulus_inh = b2.TimedArray(stim_arr_inh, dt=2 * b2.ms)
+
 
 # %%
 # synapses
@@ -154,7 +168,8 @@ Isynweakext_post= g/N_incoming*se*w : amp (summed)
 )
 sexcweak.connect(
     condition="i!=j",
-    p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    # p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    p="""po*exp(-sqrt((x_pre - x_post)**2 + (y_pre - y_post)**2) / (.05*mm * alpha**2))""",
 )
 # sexcweak.w = .2;
 
@@ -171,7 +186,8 @@ Isynext_post = g/N_incoming*se*w : amp (summed)
 
 sexcstrong.connect(
     condition="i!=j and sampled_neurons_pre and sampled_neurons_post",
-    p="""p1*exp((100-(abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter)))/((alpha1**2)))""",
+    # p="""p1*exp((100-(abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter)))/((alpha1**2)))""",
+    p="""p1*exp((100 - sqrt((x_pre - x_post)**2 + (y_pre - y_post)**2) / (.05*mm)) / alpha1**2)""",
 )
 
 # sexcstrong.w = 1;
@@ -189,7 +205,8 @@ Isyninh_post = g/N_incoming/N_outgoing*si : amp (summed)
 
 inhtoexcsynapse.connect(
     condition="i!=j",
-    p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    # p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    p="""po*exp(-sqrt((x_pre - x_post)**2 + (y_pre - y_post)**2) / (.05*mm * alpha**2))""",
 )
 
 exctoinhsynapse = b2.Synapses(
@@ -204,7 +221,8 @@ Isyninh_post = w*g/N_incoming/N_outgoing*si : amp (summed)
 
 exctoinhsynapse.connect(
     condition="i!=j",
-    p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    # p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    p="""po*exp(-sqrt((x_pre - x_post)**2 + (y_pre - y_post)**2) / (.05*mm * alpha**2))""",
 )
 
 # exctoinhsynapse.w = 2; #this needs to be changed

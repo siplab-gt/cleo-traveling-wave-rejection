@@ -108,8 +108,9 @@ def plot_all(results_dir):
     t_samps = [0, 4, 8, 12]
     fig, axs = plt.subplots(1, len(t_samps), figsize=(5.5, 2), layout="constrained")
     for ax, t_samp in zip(axs, t_samps):
-        smooth_std = 1
+        smooth_std = 0.8
         im = plot_smooth_spikes_new(data, t_samp, smooth_std, ax)
     cbar = fig.colorbar(im, label="log(smoothed spikes)", aspect=20, ticks=[])
     axs[0].set(ylabel="y [mm]")
+    fig.savefig(f"{results_dir}/spiking_over_time_smoothed.svg")
     fig.savefig(f"{results_dir}/spiking_over_time_smoothed.pdf")
