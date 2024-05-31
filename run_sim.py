@@ -20,8 +20,11 @@ cleo.utilities.style_plots_for_paper()
 # In[2]:
 
 # Lines 89-27 define default values. 9-16 are used in the generation of synapses
-opto_on = False
+opto_on = True
+delay_ms = 0
 exp_name = "opto_on" if opto_on else "opto_off"
+if opto_on:
+    exp_name += f"_delay{delay_ms}ms"
 results_dir = Path(f"results/{exp_name}")
 if not results_dir.exists():
     results_dir.mkdir(parents=True)
@@ -322,7 +325,7 @@ class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
         i, t, z_t = state_dict["Probe"]["spikes"]
         if np.size(i) >= 3:
             if opto_on:
-                opto_intensity = 0.1
+                opto_intensity = 0.15
             else:
                 opto_intensity = 0
         else:
@@ -331,7 +334,7 @@ class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
         stim_t.append(time_ms)
         spike_vals.append(np.size(i))
         # return output dict and time
-        return ({"fiber": opto_intensity}, time_ms)
+        return ({"fiber": opto_intensity}, time_ms + delay_ms)
 
 
 sim.set_io_processor(ReactiveLoopOpto())
@@ -378,6 +381,8 @@ np.savez_compressed(
     i_spk=excitespikes.i,
     stim_t=stim_t,
     stim_vals=stim_vals,
+    fiber_t=np.array(fiber.t_ms),
+    fiber_vals=np.array(fiber.values).squeeze(),
     spike_counts=spike_counts,
     bin_edges=bin_edges,
     spike_vals=spike_vals,

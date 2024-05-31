@@ -4,10 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 cleo.utilities.style_plots_for_paper()
+# mpl.rc_file_defaults()
 
 # %%
-data_opto_on = np.load("results/opto_on/data.npz")
+data_opto_on = np.load("results/opto_on_delay0ms/data.npz")
 data_opto_off = np.load("results/opto_off/data.npz")
+data_delay = np.load("results/opto_on_delay3ms/data.npz")
 
 light_473nm = "#72b5f2"
 light_473nm_dark = "#265a82"
@@ -103,11 +105,19 @@ def spikes_from_data(data):
 
 ss_opto_on = spikes_from_data(data_opto_on)
 ss_opto_off = spikes_from_data(data_opto_off)
+ss_opto_delay = spikes_from_data(data_delay)
 
 t_samps = [0, 4, 8, 12]
+t_samps = [0, 3, 6, 9, 12]
 
 fig, axs = plt.subplots(
-    2, len(t_samps), figsize=(5.75, 4), sharex=True, sharey=True, layout="compressed"
+    5,
+    len(t_samps),
+    height_ratios=[1, 1, 0.2, 1, 0.2],
+    figsize=(5.75, 6),
+    sharex=True,
+    sharey=True,
+    layout="compressed",
 )
 cax = fig.add_axes([1.02, 0.2, 0.02, 0.6])
 
@@ -117,28 +127,67 @@ vlim = (
     max(ss_opto_on.max(), ss_opto_off.max()),
 )
 
+dt = np.min(np.diff(np.unique(data_opto_off["t_spk_ms"])))
+for ss, row, label in [
+    (ss_opto_off, 0, "Control off"),
+    (ss_opto_on, 1, "Control on"),
+    (ss_opto_delay, 3, "Control on\n+3 ms delay"),
+]:
+    for ax, t_samp in zip(axs[row], t_samps):
+        im = plot_smooth_spikes_new(ss, dt, t_samp, ax, vlim)
+        sns.despine(ax=ax, bottom=True, left=True)
+        ax.set(xticks=[], yticks=[])
+    axs[row, 0].text(
+        -0.1, 1, label, ha="right", va="top", transform=axs[row, 0].transAxes
+    )
+
 for ax, t_samp in zip(axs[0], t_samps):
-    dt = np.min(np.diff(np.unique(data_opto_on["t_spk_ms"])))
-    im = plot_smooth_spikes_new(ss_opto_off, dt, t_samp, ax, vlim)
     ax.set(title=f"{t_samp} ms")
-for ax, t_samp in zip(axs[1], t_samps):
-    dt = np.min(np.diff(np.unique(data_opto_off["t_spk_ms"])))
-    im = plot_smooth_spikes_new(ss_opto_on, dt, t_samp, ax, vlim)
-    ax.set(xlabel="x [mm]", title="")
 
 cbar = fig.colorbar(im, cax, label="smoothed spikes", aspect=20, ticks=[])
-axs[0, 0].set(ylabel="y [mm]")
-axs[1, 0].set(ylabel="y [mm]")
-# fig.text(0.5, 0.9, "Without optogenetic stimulation", ha="center", va="top")
-# fig.text(0.5, 0.5, "With optogenetic stimulation", ha="center")
-row_title_loc = (-0.3, 1)
-axs[0, 0].text(
-    *row_title_loc, "Opto off", ha="right", va="top", transform=axs[0, 0].transAxes
+
+
+### clear out thin rows, add subfigures for stim
+### from https://matplotlib.org/stable/gallery/subplots_axes_and_figures/subfigures.html
+gridspec = axs[2, 0].get_subplotspec().get_gridspec()
+
+for a in np.concatenate([axs[2], axs[4]]):
+    a.remove()
+
+for data, row in [(data_opto_on, 2), (data_delay, 4)]:
+    # make the subfigure in the empty gridspec slots:
+    subfig = fig.add_subfigure(gridspec[row, :])
+    ax_stim = subfig.add_axes([0, 0.6, 1, 0.3])
+    sns.despine(ax=ax_stim, left=True)
+    ax_stim.set(
+        xlim=(0, 15),
+        ylim=(0, 1),
+        xticks=t_samps + [15],
+        xticklabels=["0 ms", "", "", "", "", "15 ms"],
+        yticks=[],
+    )
+    ax_stim.tick_params(direction="in")
+    fiber_vals = data["fiber_vals"].copy()
+    fiber_t = data["fiber_t"].copy()
+    # fiber_vals[fiber_vals == 0] = np.nan
+    starts = fiber_t[np.where(np.diff(fiber_vals) > 0)[0]]
+    ends = fiber_t[np.where(np.diff(fiber_vals) < 0)[0]]
+    # ax_stim.step(data["fiber_t"], data["fiber_vals"], where="post", color=light_473nm)
+    if len(starts) > len(ends):
+        ends = np.concatenate([ends, [fiber_t[-1]]])
+    for start, end in zip(starts, ends):
+        poly = ax_stim.axvspan(
+            start,
+            end,
+            color=light_473nm,
+            label="stimulation triggered when ≥3 spikes detected",
+        )
+
+ax_stim.legend(
+    handles=[poly], loc="upper center", bbox_to_anchor=(0.5, 0), frameon=False
 )
-axs[1, 0].text(
-    *row_title_loc, "Opto on", ha="right", va="top", transform=axs[1, 0].transAxes
-)
+
 fig.savefig(f"results/spiking_comparison.svg")
-fig.savefig(f"results/spiking_comparison.pdf")
+# fig.savefig(f"results/spiking_comparison.pdf")
 
 # %%
