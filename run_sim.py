@@ -6,8 +6,8 @@
 # %%
 
 import random as rnd
-from pathlib import Path
 import time
+from pathlib import Path
 
 import brian2.only as b2
 import cleo
@@ -173,7 +173,9 @@ Isynweakext_post= g/N_incoming*se*w : amp (summed)
 )
 sexcweak.connect(
     condition="i!=j",
+    # original paper used Manhattan distance
     # p="""po*exp((-abs(x_pre-x_post)/(.05*mmeter)*abs(y_pre-y_post)/(.05*mmeter))/((alpha**2)))""",
+    # Euclidean distance instead:
     p="""po*exp(-sqrt((x_pre - x_post)**2 + (y_pre - y_post)**2) / (.05*mm * alpha**2))""",
 )
 # sexcweak.w = .2;
@@ -184,7 +186,7 @@ sexcstrong = b2.Synapses(
     exciteneurons,
     """w=80000 : 1
 dse/dt = -se/tauampa: amp (clock-driven)
-Isynext_post = g/N_incoming*se*w : amp (summed)
+Isynext_post = w*g/N_incoming*se : amp (summed)
 """,
     on_pre="se = se + .5*amp",
 )
@@ -203,7 +205,7 @@ inhtoexcsynapse = b2.Synapses(
     exciteneurons,
     """w=-10000000 : 1
 dsi/dt = -si/taugaba : amp (clock-driven)
-Isyninh_post = g/N_incoming/N_outgoing*si : amp (summed)
+Isyninh_post = w*g/N_incoming/N_outgoing*si : amp (summed)
 """,
     on_pre="si = si + .5*amp",
 )
