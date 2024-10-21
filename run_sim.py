@@ -3,22 +3,24 @@
 
 # In[1]:
 
+# %%
 
 import random as rnd
 from pathlib import Path
+import time
 
 import brian2.only as b2
 import cleo
 import matplotlib.pyplot as plt
-import numpy as np
 from brian2 import np
 
 b2.prefs.codegen.target = "numpy"
 cleo.utilities.style_plots_for_paper()
 
+# %%
+t_start = time.time()
 
-# In[2]:
-
+# %%
 # Lines 89-27 define default values. 9-16 are used in the generation of synapses
 opto_on = True
 delay_ms = 0
@@ -217,7 +219,7 @@ exctoinhsynapse = b2.Synapses(
     inhneurons,
     """w=10000000 : 1
 dsi/dt = -si/taugaba : amp (clock-driven)
-Isyninh_post = w*g/N_incoming/N_outgoing*si : amp (summed)
+Isynext_post = w*g/N_incoming/N_outgoing*si : amp (summed)
 """,
     on_pre="si = si + .5*amp",
 )
@@ -355,6 +357,8 @@ sim.run(15 * b2.ms)
 # plt.savefig('spiking_100x100_15ms_v43.png')
 # plt.close()
 # print(sim.network.t)
+t_end = time.time()
+print(f"Time elapsed: {t_end - t_start:.1f} seconds")
 
 # %%
 
