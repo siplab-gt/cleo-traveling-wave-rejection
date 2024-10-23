@@ -40,68 +40,34 @@ def tune_weights(cfg: SimulationConfig):
         len(ng),
     )
 
-    # set the voltage to just above threshold for presynaptic neurons
-    # and make their threshold high so they just spike once
-    ng.thresh[np.r_[i_weak, i_strong]] = 19120731 * b2.volt
-    ng.v[i_weak] = ng.thresh[i_weak] * 1.01
-    ng.v[i_strong] = ng.thresh[i_strong] * 1.01
-    # ensure other neurons won't spike
-    ng.v[i_all_others] = -18010630 * b2.volt
-
-    # ng_test = b2.NeuronGroup(7, exceqs, threshold="v > thresh", reset="v = -5*volt")
-    # ng_test.thresh = np.mean(cfg.exc_thresh_lim) * b2.volt
-    # print(ng_test.thresh)
-    # ng_test.v[:5] = ng_test.thresh[:5] * 1.001
-    # print(ng_test.v)
-
-    # stim_arr_exc = np.zeros((2, cfg.N_exc))  # T x N
-    # stimulus_exc = b2.TimedArray(stim_arr_exc, dt=2 * b2.ms)
-
-    # syn_weak = b2.Synapses(
-    #     ng_test,
-    #     ng_test,
-    #     syn_model.replace("NAME", "exc_weak"),
-    #     on_pre=on_pre,
-    #     namespace={"w": cfg.w_base * cfg.g_weak, "tau": cfg.tau_ampa},
-    # )
-    # syn_weak.connect(i=range(5), j=[5] * 5)
-
-    # syn_strong = b2.Synapses(
-    #     ng_test,
-    #     ng_test,
-    #     syn_model.replace("NAME", "exc_strong"),
-    #     on_pre=on_pre,
-    #     namespace={"w": cfg.w_base * cfg.g_strong, "tau": cfg.tau_ampa},
-    # )
-    # syn_strong.connect(i=[0], j=[6])
-
-    # spmon = b2.SpikeMonitor(ng_test)
-
-    # net = b2.Network(b2.collect())
     spmon = objs["exc_spike_mon"]
 
     net.store()
 
-    # 5 spikes to 1 spike
-    def evaluate_weights(w_base, sw_ratio):
+    # aiming for 1 spike per postsynaptic neuron
+    def evaluate_weights(w_base, sw_ratio, i, j):
         cfg.w_base = w_base
         cfg.strong_weak_ratio = sw_ratio
+
+        # set the voltage to just above threshold for presynaptic neurons
+        # and make their threshold high so they just spike once
+        ng.thresh[i] = 19120731 * b2.volt
+        ng.v[i] = ng.thresh[i] * 1.01
+        # ensure other neurons won't spike
+        i_others = np.setdiff1d(ng.i, np.r_[i, j])
+        ng.v[i_others] = -18010630 * b2.volt
+
         net.run(10 * b2.ms, namespace=asdict(cfg))
 
-        n_weak_pre_spikes = np.sum(np.isin(spmon.i, i_weak))
-        assert n_weak_pre_spikes == len(i_weak), f"{n_weak_pre_spikes=}, {len(i_weak)=}"
-
-        n_strong_pre_spikes = np.sum(np.isin(spmon.i, i_strong))
-        assert n_strong_pre_spikes == len(
-            i_strong
-        ), f"{n_strong_pre_spikes=}, {len(i_strong)=}"
+        n_pre_spikes = np.sum(np.isin(spmon.i, i))
+        assert n_pre_spikes == len(i), f"{n_pre_spikes=}, {len(i)=}"
 
         # should have no other spikes
-        assert np.sum(np.isin(spmon.i, i_all_others)) == 0
+        assert np.sum(np.isin(spmon.i, i_others)) == 0
 
-        n_weak_post_spikes = np.sum(np.isin(spmon.i, j_weak))
-        n_strong_post_spikes = np.sum(np.isin(spmon.i, j_strong))
-        result = n_weak_post_spikes / len(j_weak), n_strong_post_spikes / len(j_strong)
+        n_post_spikes = np.sum(np.isin(spmon.i, j))
+
+        result = n_post_spikes / len(j)
         print(f"{w_base=}, {sw_ratio=}, {result=}")
         net.restore()
         return result
@@ -118,16 +84,40 @@ def tune_weights(cfg: SimulationConfig):
                 high = mid
         return low
 
+    print("w_base:")
     w_base = binary_search(
-        lambda w_base: evaluate_weights(w_base, cfg.strong_weak_ratio)[0], 0, 1e6, 1
+        lambda w_base: evaluate_weights(w_base, cfg.strong_weak_ratio, i_weak, j_weak),
+        0,
+        1e6,
+        1,
     )
 
+    print("strong_weak_ratio:")
     strong_weak_ratio = binary_search(
-        lambda sw_ratio: evaluate_weights(w_base, sw_ratio)[1], 0, 100, 1
+        lambda sw_ratio: evaluate_weights(w_base, sw_ratio, i_strong, j_strong),
+        0,
+        100,
+        1,
     )
-    return w_base, strong_weak_ratio
+    return (
+        w_base,
+        strong_weak_ratio,
+        {"syn_weak": sweak, "syn_strong": sstrong, "ng": ng},
+    )
 
 
 if __name__ == "__main__":
     cfg = SimulationConfig()
-    print(tune_weights(cfg))
+    w_base, strong_weak_ratio, objs = tune_weights(cfg)
+    print(f"{w_base=}, {strong_weak_ratio=}")
+
+    sstrong = objs["syn_strong"]
+    sweak = objs["syn_weak"]
+    w_strong_unnormalized = w_base * strong_weak_ratio / (sstrong.N / cfg.N_exc)
+    w_weak_unnormalized = w_base / (sweak.N / cfg.N_exc)
+    swratio_unnormalized = strong_weak_ratio * sweak.N / sstrong.N
+    print(
+        "This strong-weak ratio represents the total influence on an excitatory neuron. "
+        "A more interpretable strong-weak ratio, without this normalization, is "
+    )
+    print(f"{swratio_unnormalized=:.3f}")

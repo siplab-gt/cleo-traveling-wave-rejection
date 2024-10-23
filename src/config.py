@@ -29,8 +29,8 @@ class SimulationConfig:
     N_syn_strong: int = 500
     # g_weak: float = 0.1
     # g_strong: float = 2
-    w_base: float = 1
-    strong_weak_ratio: float = 5
+    w_base: float = 1525
+    strong_weak_ratio: float = 0.25
     inh_exc_w_ratio: float = 1
     g_exc: b2.Quantity = field(default_factory=lambda: b2.siemens)
     g_inh: b2.Quantity = field(default_factory=lambda: b2.siemens)
