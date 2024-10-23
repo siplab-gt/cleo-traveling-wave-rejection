@@ -1,0 +1,4 @@
+[project]
+name = "cleo_pe1"
+version = "0.1.0"
+dependencies = ["cleosim ==0.16.0"]

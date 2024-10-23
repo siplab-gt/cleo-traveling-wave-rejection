@@ -45,6 +45,15 @@ class SimulationConfig:
     stim_duration: b2.Quantity = field(default_factory=lambda: 2 * b2.ms)
 
     def __post_init__(self):
+        # if realistic_values := False:
+        #     g_exc = 1 / (100 * b2.Mohm)
+        #     g_inh = 1 / (200 * b2.Mohm)
+        #     tau_M = 15 * b2.ms
+        #     C_exc = tau_M * g_exc
+        #     C_inh = tau_M * g_inh
+        # else:
+        #     g_exc = g_inh = b2.siemens
+        #     C_exc = C_inh = b2.farad
         self.sigma = self.sigma * self.unit_len
         self.sigma_strong = self.sigma_strong * self.unit_len
         if self.opto_on:
