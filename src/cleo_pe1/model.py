@@ -5,7 +5,6 @@ from brian2 import np
 
 from cleo_pe1.config import SimulationConfig
 
-# "hi"
 exceqs = """dv/dt = (I_summed - v*g_exc)/C_exc : volt
 I_summed = I_stim + I_exc_strong + I_exc_weak + I_inh + I_opto : amp
 I_opto : amp

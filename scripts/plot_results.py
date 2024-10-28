@@ -121,7 +121,7 @@ def spikes_from_data(data):
 
     smoothed_spikes_all = gaussian_filter1d(spikes, smooth_std / dt, axis=1)
     # since the firing distribution is right-skewed, plot log instead
-    # smoothed_spikes_all = np.log(smoothed_spikes_all + 1e-3)
+    smoothed_spikes_all = np.log(smoothed_spikes_all + 1e-3)
     return smoothed_spikes_all
 
 
@@ -166,7 +166,7 @@ for ss, row, label in [
 for ax, t_samp in zip(axs[0], t_samps):
     ax.set(title=f"{t_samp} ms")
 
-cbar = fig.colorbar(im, cax, label="smoothed spikes", aspect=20, ticks=[])
+cbar = fig.colorbar(im, cax, label="log(smoothed spikes)", aspect=20, ticks=[])
 
 
 ### clear out thin rows, add subfigures for stim
@@ -210,6 +210,6 @@ ax_stim.legend(
 )
 
 fig.savefig(f"results/spiking_comparison.svg")
-# fig.savefig(f"results/spiking_comparison.pdf")
+fig.savefig(f"results/spiking_comparison.pdf")
 
 # %%

@@ -11,6 +11,7 @@ from datetime import datetime
 
 import brian2.only as b2
 import cleo
+import cleo.utilities
 import matplotlib.pyplot as plt
 from brian2 import np
 from cleo_pe1 import config, model
@@ -37,8 +38,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--delay_ms",
-        type=float,
-        default=0.0,
+        type=int,
+        default=0,
         help="Delay in milliseconds for the optogenetic stimulation",
     )
     parser.add_argument("--seed", type=int, default=18051844)
@@ -52,14 +53,19 @@ if __name__ == "__main__":
 cfg.save_to_file()
 b2.seed(cfg.seed)
 np.random.seed(cfg.seed)
+cleo.utilities.set_seed(cfg.seed)
 
 net, objs = model.load_model(cfg)
 ng_exc = objs["ng_exc"]
 
-# In[3]:
+# %%
 simple_opsin = cleo.opto.ProportionalCurrentOpsin(
     name="simple_opsin",
-    I_per_Irr=-2400000 * b2.amp / (b2.mwatt / b2.mm2),
+    # normalize by original resistance (0.1 Ω)
+    I_per_Irr=-2.4e-12
+    * b2.amp
+    / (b2.mwatt / b2.mm2)
+    * ((1 / cfg.g_exc) / (0.1 * b2.ohm)),
 )
 fiber = cleo.light.Light(
     coords=(1.75, 1.75, 0) * b2.mm,
@@ -111,7 +117,7 @@ class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
     # since this is open-loop, we don't use state_dict
     def process(self, state_dict, t_samp):
         i, t, z_t = state_dict["Probe"]["spikes"]
-        if np.size(i) >= 3:
+        if np.size(i) >= cfg.ctrl_thresh:
             if cfg.opto_on:
                 opto_intensity = 0.15
             else:

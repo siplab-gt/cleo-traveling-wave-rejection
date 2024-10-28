@@ -10,10 +10,11 @@ class SimulationConfig:
     opto_on: bool = False
     delay_ms: int = 0
     results_base_dir: Path = Path("results")
-    generate_video: bool = True
+    generate_video: bool = False
     generate_3d_video: bool = False
     target: str = "numpy"
     seed: int = 18051844
+    ctrl_thresh: int = 2
 
     # underlying model
     p0: float = 0.1  # for weak connections
