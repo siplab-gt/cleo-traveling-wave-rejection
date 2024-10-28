@@ -10,16 +10,18 @@ class SimulationConfig:
     opto_on: bool = False
     delay_ms: int = 0
     results_base_dir: Path = Path("results")
-    generate_video: bool = False
-    exp_name: str = "AUTOMATICALLY GENERATED"
-    results_dir: Path = "AUTOMATICALLY GENERATED"
+    generate_video: bool = True
+    generate_3d_video: bool = False
     target: str = "numpy"
+    seed: int = 18051844
 
     # underlying model
     p0: float = 0.1  # for weak connections
     unit_len: b2.Quantity = field(default_factory=lambda: 50 * b2.um)
-    sigma: b2.Quantity = 5
-    sigma_strong: b2.Quantity = 7
+    sigma_no_len: float = 5
+    """using the arbitrary coordinate system from the paper. `sigma` applies length"""
+    sigma_strong_no_len: float = 7
+    """using the arbitrary coordinate system from the paper. `sigma_strong` applies length"""
     p1: int = 1  # for strong connections
     tau_ampa: b2.Quantity = field(default_factory=lambda: 2 * b2.ms)
     tau_gaba: b2.Quantity = field(default_factory=lambda: 5 * b2.ms)
@@ -44,16 +46,24 @@ class SimulationConfig:
     stim_radius: b2.Quantity = field(default_factory=lambda: 0.25 * b2.mm)
     stim_duration: b2.Quantity = field(default_factory=lambda: 2 * b2.ms)
 
-    def __post_init__(self):
-        self.sigma = self.sigma * self.unit_len
-        self.sigma_strong = self.sigma_strong * self.unit_len
+    @property
+    def results_dir(self):
         if self.opto_on:
-            self.exp_name = f"opto_on_delay{self.delay_ms}ms"
+            exp_name = f"opto_on_delay{self.delay_ms}ms"
         else:
-            self.exp_name = "opto_off"
-        self.results_dir = self.results_base_dir / self.exp_name
-        if not self.results_dir.exists():
-            self.results_dir.mkdir(parents=True)
+            exp_name = "opto_off"
+        results_dir = self.results_base_dir / exp_name
+        if not results_dir.exists():
+            results_dir.mkdir(parents=True)
+        return results_dir
+
+    @property
+    def sigma(self):
+        return self.sigma_no_len * self.unit_len
+
+    @property
+    def sigma_strong(self):
+        return self.sigma_strong_no_len * self.unit_len
 
     def save_to_file(self):
         with open(self.results_dir / "config.txt", "w") as f:

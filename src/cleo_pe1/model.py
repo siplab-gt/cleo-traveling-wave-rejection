@@ -5,6 +5,7 @@ from brian2 import np
 
 from cleo_pe1.config import SimulationConfig
 
+# "hi"
 exceqs = """dv/dt = (I_summed - v*g_exc)/C_exc : volt
 I_summed = I_stim + I_exc_strong + I_exc_weak + I_inh + I_opto : amp
 I_opto : amp
@@ -45,6 +46,7 @@ connect_prob = "p0 * exp(-((x_pre - x_post)**2 + (y_pre - y_post)**2) / sigma**2
 
 
 def load_model(cfg: SimulationConfig):
+    rng = np.random.default_rng(cfg.seed)
     cfg_needed_on_load = {}
     for k in ["sigma", "p0", "p1"]:
         cfg_needed_on_load[k] = getattr(cfg, k)
@@ -62,15 +64,15 @@ def load_model(cfg: SimulationConfig):
         reset="v = 0*volt",
     )
 
-    ng_exc.z = np.random.uniform(0.45, 0.55, cfg.N_exc) * b2.mm
-    ng_exc.individual_stim_strength = np.random.uniform(0, 1, cfg.N_exc)
+    ng_exc.z = rng.uniform(0.45, 0.55, cfg.N_exc) * b2.mm
+    ng_exc.individual_stim_strength = rng.uniform(0, 1, cfg.N_exc)
 
     # Initial conditions and firing thresholds for neurons
-    ng_exc.v = np.random.uniform(*cfg.exc_v_init_lim, cfg.N_exc) * b2.volt
-    ng_exc.thresh = np.random.uniform(*cfg.exc_thresh_lim, cfg.N_exc) * b2.volt
+    ng_exc.v = rng.uniform(*cfg.exc_v_init_lim, cfg.N_exc) * b2.volt
+    ng_exc.thresh = rng.uniform(*cfg.exc_thresh_lim, cfg.N_exc) * b2.volt
 
-    ng_inh.v = np.random.uniform(*cfg.inh_v_init_lim, cfg.N_inh) * b2.volt
-    ng_inh.thresh = np.random.uniform(*cfg.inh_thresh_lim, cfg.N_inh) * b2.volt
+    ng_inh.v = rng.uniform(*cfg.inh_v_init_lim, cfg.N_inh) * b2.volt
+    ng_inh.thresh = rng.uniform(*cfg.inh_thresh_lim, cfg.N_inh) * b2.volt
 
     # synapses
     syn_e2e_weak = b2.Synapses(
@@ -89,9 +91,7 @@ def load_model(cfg: SimulationConfig):
     print(f"Number of weak synapses: {len(syn_e2e_weak)}")
 
     # strong synapses
-    i_strong_neurons = np.random.choice(
-        range(cfg.N_exc), cfg.N_exc_strong, replace=False
-    )
+    i_strong_neurons = rng.choice(range(cfg.N_exc), cfg.N_exc_strong, replace=False)
     x_strong = ng_exc.x[i_strong_neurons]
     y_strong = ng_exc.y[i_strong_neurons]
     p_strong_connect = cfg.p1 * np.exp(
@@ -105,11 +105,11 @@ def load_model(cfg: SimulationConfig):
     np.fill_diagonal(p_strong_connect, 0)
     assert p_strong_connect.shape == (cfg.N_exc_strong, cfg.N_exc_strong)
     strong_connections = (
-        np.random.rand(cfg.N_exc_strong, cfg.N_exc_strong) < p_strong_connect
+        rng.uniform(size=(cfg.N_exc_strong, cfg.N_exc_strong)) < p_strong_connect
     )
     i_syn_strong, j_syn_strong = np.where(strong_connections)
     j_syn_strong
-    idx_strong_to_keep = np.random.choice(
+    idx_strong_to_keep = rng.choice(
         range(len(i_syn_strong)), cfg.N_syn_strong, replace=False
     )
     assert len(idx_strong_to_keep) == cfg.N_syn_strong

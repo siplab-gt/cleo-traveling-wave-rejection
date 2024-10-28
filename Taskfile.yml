@@ -1,0 +1,58 @@
+version: "3"
+
+vars:
+  delay_ms: 3
+
+tasks:
+  run_sims:
+    desc: "Run all simulations"
+    cmds:
+      - task: run_sim
+        vars: { opto: "--opto", delay_ms: 0, outdir: "opto_on_delay0ms" }
+      - task: run_sim
+        vars:
+          {
+            opto: "--opto",
+            delay_ms: "{{ .delay_ms }}",
+            outdir: "opto_on_delay{{ .delay_ms }}ms",
+          }
+      - task: run_sim
+        vars: { delay_ms: 0, outdir: "opto_off" }
+
+  run_sim:
+    internal: true
+    label: "run sim {{.outdir}}"
+    cmds:
+      - python scripts/run_sim.py {{.opto}} --delay_ms {{.delay_ms}}
+    sources:
+      - scripts/run_sim.py
+      - src/cleo_pe1/config.py
+      - src/cleo_pe1/model.py
+    generates:
+      - "results/{{ .outdir }}/data.npz"
+
+  plot_results:
+    cmds:
+      - python scripts/plot_results.py
+    desc: "Combine results into a plot"
+    deps:
+      - run_sims
+    sources:
+      - scripts/plot_results.py
+    generates:
+      - results/spiking_comparison.svg
+
+  clean_sim:
+    internal: true
+
+  clean:
+    cmds:
+      - rm -rf results/opto_off
+      - rm -rf results/opto_on_delay0ms
+      - rm -rf results/opto_on_delay{{.delay_ms}}ms
+    desc: "Clean up all result files"
+
+  default:
+    desc: "Run all simulations and plot results"
+    deps:
+      - plot_results

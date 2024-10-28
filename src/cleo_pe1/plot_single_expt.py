@@ -143,7 +143,6 @@ def plot_movie(results_dir, subsample=1):
         return (im,)
 
     print("Creating animation...")
-    print(f"{t_ms.shape[0] = }")
     anim = mplanim.FuncAnimation(
         fig,
         animate,

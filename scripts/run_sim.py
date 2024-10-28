@@ -2,7 +2,9 @@
 # coding: utf-8
 
 # %%
+import argparse
 import shutil
+import sys
 import time
 from dataclasses import asdict
 from datetime import datetime
@@ -25,7 +27,31 @@ t_start = time.time()
 cfg = config.realistic_cfg(exc_v_init_lim=(0, 0), inh_exc_w_ratio=1)
 cfg.w_base *= 5
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run simulation with optional optogenetic stimulation."
+    )
+
+    parser.add_argument(
+        "--opto", action="store_true", help="Enable optogenetic stimulation"
+    )
+    parser.add_argument(
+        "--delay_ms",
+        type=float,
+        default=0.0,
+        help="Delay in milliseconds for the optogenetic stimulation",
+    )
+    parser.add_argument("--seed", type=int, default=18051844)
+
+    args = parser.parse_args()
+
+    cfg.opto_on = args.opto
+    cfg.delay_ms = args.delay_ms
+    cfg.seed = args.seed
+
 cfg.save_to_file()
+b2.seed(cfg.seed)
+np.random.seed(cfg.seed)
 
 net, objs = model.load_model(cfg)
 ng_exc = objs["ng_exc"]
@@ -102,13 +128,13 @@ class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
 
 sim.set_io_processor(ReactiveLoopOpto())
 
-if cfg.generate_video:
+if cfg.generate_3d_video:
     vv = cleo.viz.VideoVisualizer(dt=0.5 * b2.ms, devices_to_plot=[probe, fiber])
     sim.inject(vv, ng_exc)
 
 
 # %%
-runtime = 60 * b2.ms
+runtime = 20 * b2.ms
 sim.run(runtime, namespace=asdict(cfg))
 
 # fig, ax = plt.subplots()
@@ -167,7 +193,7 @@ from cleo_pe1.plot_single_expt import plot_all
 plot_all(cfg.results_dir, t_samps=np.linspace(0, runtime / b2.ms - 1, 5))
 
 # %%
-if cfg.generate_video:
+if cfg.generate_3d_video:
     from matplotlib import animation as animation
 
     fiber.max_Irr0_mW_per_mm2_viz = 5
@@ -178,7 +204,7 @@ if cfg.generate_video:
 # %%
 from cleo_pe1.plot_single_expt import plot_movie
 
-if True:
+if cfg.generate_video:
     plot_movie(cfg.results_dir, 5)
 
 # %%
