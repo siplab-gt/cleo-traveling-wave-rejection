@@ -34,11 +34,17 @@ tasks:
   plot_results:
     cmds:
       - python scripts/plot_results.py
+        --opto_on results/opto_on_delay0ms/data.npz
+        --opto_off results/opto_off/data.npz
+        --delay results/opto_on_delay{{.delay_ms}}ms/data.npz
     desc: "Combine results into a plot"
     deps:
       - run_sims
     sources:
       - scripts/plot_results.py
+      - results/opto_on_delay0ms/data.npz
+      - results/opto_off/data.npz
+      - results/opto_on_delay{{.delay_ms}}ms/data.npz
     generates:
       - results/spiking_comparison.svg
 
@@ -51,6 +57,27 @@ tasks:
       - rm -rf results/opto_on_delay0ms
       - rm -rf results/opto_on_delay{{.delay_ms}}ms
     desc: "Clean up all result files"
+
+  movie:
+    internal: true
+    label: "make movie {{.outdir}}"
+    cmds:
+      - python scripts/make_movie.py results/{{.outdir}}
+    sources:
+      - scripts/make_movie.py
+      - results/{{.outdir}}/data.npz
+    generates:
+      - results/{{.outdir}}/animation.mp4
+
+  movies:
+    desc: "Create movies of the simulations"
+    cmds:
+      - task: movie
+        vars: { outdir: "opto_on_delay0ms" }
+      - task: movie
+        vars: { outdir: "opto_on_delay{{.delay_ms}}ms" }
+      - task: movie
+        vars: { outdir: "opto_off" }
 
   default:
     desc: "Run all simulations and plot results"

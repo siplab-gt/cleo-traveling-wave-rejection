@@ -202,7 +202,7 @@ for data, row in [(data_opto_on, 2), (data_delay, 4)]:
             start,
             end,
             color=light_473nm,
-            label="stimulation triggered when ≥3 spikes detected",
+            label="stimulation triggered when ≥2 spikes detected",
         )
 
 ax_stim.legend(
