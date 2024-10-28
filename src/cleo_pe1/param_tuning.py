@@ -2,8 +2,8 @@ from dataclasses import asdict
 
 import brian2.only as b2
 from brian2 import np
-from config import SimulationConfig
-from model import load_model
+from config import SimulationConfig, realistic_cfg
+from cleo_pe1.model import load_model
 
 
 def tune_weights(cfg: SimulationConfig):
@@ -51,11 +51,11 @@ def tune_weights(cfg: SimulationConfig):
 
         # set the voltage to just above threshold for presynaptic neurons
         # and make their threshold high so they just spike once
-        ng.thresh[i] = 19120731 * b2.volt
+        ng.thresh[i] = 1912073120061116 * b2.volt
         ng.v[i] = ng.thresh[i] * 1.01
         # ensure other neurons won't spike
         i_others = np.setdiff1d(ng.i, np.r_[i, j])
-        ng.v[i_others] = -18010630 * b2.volt
+        ng.v[i_others] = -1801063018501224 * b2.volt
 
         net.run(10 * b2.ms, namespace=asdict(cfg))
 
@@ -107,7 +107,8 @@ def tune_weights(cfg: SimulationConfig):
 
 
 if __name__ == "__main__":
-    cfg = SimulationConfig()
+    # cfg = SimulationConfig()
+    cfg = realistic_cfg()
     w_base, strong_weak_ratio, objs = tune_weights(cfg)
     print(f"{w_base=}, {strong_weak_ratio=}")
 
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     w_weak_unnormalized = w_base / (sweak.N / cfg.N_exc)
     swratio_unnormalized = strong_weak_ratio * sweak.N / sstrong.N
     print(
-        "This strong-weak ratio represents the total influence on an excitatory neuron. "
+        "This strong-weak ratio represents the total average influence on an excitatory neuron. "
         "A more interpretable strong-weak ratio, without this normalization, is "
     )
     print(f"{swratio_unnormalized=:.3f}")

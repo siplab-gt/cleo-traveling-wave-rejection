@@ -2,13 +2,19 @@ from dataclasses import asdict
 
 import brian2.only as b2
 from brian2 import np
-from config import SimulationConfig
+
+from cleo_pe1.config import SimulationConfig
 
 exceqs = """dv/dt = (I_summed - v*g_exc)/C_exc : volt
 I_summed = I_stim + I_exc_strong + I_exc_weak + I_inh + I_opto : amp
 I_opto : amp
 stimulated = sqrt(x**2 + y**2) < stim_radius : boolean
-I_stim = int(stimulated) * int(t < stim_duration) * stim_level * amp : amp
+# normalize by original resistance (0.1 Ω)
+I_stim = int(stimulated) * int(t < stim_duration) 
+    * stim_level * ((1 / g_exc) / (0.1 * ohm))
+    * individual_stim_strength
+    * amp : amp
+individual_stim_strength : 1
 I_exc_weak : amp
 I_exc_strong : amp
 I_inh : amp
@@ -39,7 +45,10 @@ connect_prob = "p0 * exp(-((x_pre - x_post)**2 + (y_pre - y_post)**2) / sigma**2
 
 
 def load_model(cfg: SimulationConfig):
-    locals().update(asdict(cfg))
+    cfg_needed_on_load = {}
+    for k in ["sigma", "p0", "p1"]:
+        cfg_needed_on_load[k] = getattr(cfg, k)
+    b2.prefs.codegen.target = cfg.target
     ng_exc = b2.NeuronGroup(
         cfg.N_exc,
         exceqs,
@@ -54,6 +63,7 @@ def load_model(cfg: SimulationConfig):
     )
 
     ng_exc.z = np.random.uniform(0.45, 0.55, cfg.N_exc) * b2.mm
+    ng_exc.individual_stim_strength = np.random.uniform(0, 1, cfg.N_exc)
 
     # Initial conditions and firing thresholds for neurons
     ng_exc.v = np.random.uniform(*cfg.exc_v_init_lim, cfg.N_exc) * b2.volt
@@ -70,6 +80,7 @@ def load_model(cfg: SimulationConfig):
         .replace("W_EXPR", "w_base")
         .replace("tau", "tau_ampa"),
         on_pre=on_pre,
+        namespace=cfg_needed_on_load,
     )
     syn_e2e_weak.connect(
         condition="i!=j",
@@ -118,6 +129,7 @@ def load_model(cfg: SimulationConfig):
         .replace("W_EXPR", "w_base * strong_weak_ratio")
         .replace("tau", "tau_ampa"),
         on_pre=on_pre,
+        namespace=cfg_needed_on_load,
     )
     syn_e2e_strong.connect(i=i_syn_strong_orig, j=j_syn_strong_orig)
     print(f"Number of strong synapses (should be 500): {len(syn_e2e_strong)}")
@@ -130,6 +142,7 @@ def load_model(cfg: SimulationConfig):
         .replace("W_EXPR", "-inh_exc_w_ratio * w_base * (1 + strong_weak_ratio)")
         .replace("tau", "tau_gaba"),
         on_pre=on_pre,
+        namespace=cfg_needed_on_load,
     )
     syn_i2e.connect(
         condition="i!=j",
@@ -143,6 +156,7 @@ def load_model(cfg: SimulationConfig):
         .replace("W_EXPR", "inh_exc_w_ratio * w_base * (1 + strong_weak_ratio)")
         .replace("tau", "tau_ampa"),
         on_pre=on_pre,
+        namespace=cfg_needed_on_load,
     )
     syn_e2i.connect(
         condition="i!=j",

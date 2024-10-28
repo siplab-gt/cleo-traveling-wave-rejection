@@ -2,14 +2,15 @@
 # coding: utf-8
 
 # %%
+import shutil
 import time
-from pathlib import Path
+from dataclasses import asdict
+from datetime import datetime
 
 import brian2.only as b2
 import cleo
 import matplotlib.pyplot as plt
 from brian2 import np
-
 from cleo_pe1 import config, model
 
 b2.prefs.codegen.target = "numpy"
@@ -19,8 +20,13 @@ cleo.utilities.style_plots_for_paper()
 t_start = time.time()
 
 # %%
-cfg = config.SimulationConfig()
-b2.prefs.codegen.target = cfg.target
+# cfg = config.SimulationConfig(exc_v_init_lim=(0, 0), inh_exc_w_ratio=2)
+# realistic
+cfg = config.realistic_cfg(exc_v_init_lim=(0, 0), inh_exc_w_ratio=1)
+cfg.w_base *= 5
+
+cfg.save_to_file()
+
 net, objs = model.load_model(cfg)
 ng_exc = objs["ng_exc"]
 
@@ -102,7 +108,8 @@ if cfg.generate_video:
 
 
 # %%
-sim.run(15 * b2.ms)
+runtime = 60 * b2.ms
+sim.run(runtime, namespace=asdict(cfg))
 
 # fig, ax = plt.subplots()
 # ax.plot(excitespikes.t/msecond, excitespikes.i, '|',ms=.2,lw=1)
@@ -149,13 +156,15 @@ np.savez_compressed(
     numofexcneur=cfg.N_exc,
     exc_x_mm=ng_exc.x / b2.mm,
     exc_y_mm=ng_exc.y / b2.mm,
+    exc_v_mV=objs["exc_st_mon"].v / b2.volt,
+    exc_t_ms=objs["exc_st_mon"].t / b2.ms,
 )
 
 # %%
 # plot results
-from src.plot_single_expt import plot_all
+from cleo_pe1.plot_single_expt import plot_all
 
-plot_all(cfg.results_dir)
+plot_all(cfg.results_dir, t_samps=np.linspace(0, runtime / b2.ms - 1, 5))
 
 # %%
 if cfg.generate_video:
@@ -165,3 +174,14 @@ if cfg.generate_video:
     ani = vv.generate_Animation(plotargs, slowdown_factor=1000, figsize=[16, 12])
     ani.save(cfg.results_dir / "100x100_neurons_15ms_animation.gif")
     plt.close()
+
+# %%
+from cleo_pe1.plot_single_expt import plot_movie
+
+if True:
+    plot_movie(cfg.results_dir, 5)
+
+# %%
+# save copy of results folder
+timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+shutil.copytree(cfg.results_dir, cfg.results_base_dir / timestamp)

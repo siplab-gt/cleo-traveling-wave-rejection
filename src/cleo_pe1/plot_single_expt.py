@@ -1,5 +1,6 @@
 # %5
 import brian2.only as b2
+import matplotlib.animation as mplanim
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -98,14 +99,13 @@ def plot_smooth_spikes_new(data, sampletime, smooth_std, ax=None):
     return im
 
 
-def plot_all(results_dir):
+def plot_all(results_dir, t_samps=[0, 4, 8, 12]):
     data = np.load(f"{results_dir}/data.npz")
 
     fig, ax = plt.subplots(figsize=(5.5, 1.25), layout="constrained")
     plot_spiking_and_stim_together(data, ax)
     fig.savefig(f"{results_dir}/spiking_and_stim.svg")
 
-    t_samps = [0, 4, 8, 12]
     fig, axs = plt.subplots(1, len(t_samps), figsize=(5.5, 2), layout="constrained")
     for ax, t_samp in zip(axs, t_samps):
         smooth_std = 0.8
@@ -114,3 +114,41 @@ def plot_all(results_dir):
     axs[0].set(ylabel="y [mm]")
     fig.savefig(f"{results_dir}/spiking_over_time_smoothed.svg")
     fig.savefig(f"{results_dir}/spiking_over_time_smoothed.pdf")
+
+
+def plot_movie(results_dir, subsample=1):
+    data = np.load(f"{results_dir}/data.npz")
+    v = data["exc_v_mV"]
+    t_ms = data["exc_t_ms"]
+
+    X, Y = np.meshgrid(np.unique(data["exc_x_mm"]), np.unique(data["exc_y_mm"]))
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(
+        v[:, 0].reshape(X.shape),
+        vmin=0,
+        vmax=1,
+        origin="lower",
+        extent=[X.min(), X.max(), Y.min(), Y.max()],
+        interpolation="nearest",
+        cmap="inferno",
+    )
+    ax.set_title(f"t = {t_ms[0]:.2f} ms")
+    plt.colorbar(im)
+
+    def animate(i):
+        im.set_array(v[:, i].reshape(X.shape))
+        ax.set_title(f"t = {t_ms[i]:.2f} ms")
+        print(f"Frame {i}/{t_ms.shape[0]}", end="\r")
+        return (im,)
+
+    print("Creating animation...")
+    print(f"{t_ms.shape[0] = }")
+    anim = mplanim.FuncAnimation(
+        fig,
+        animate,
+        frames=range(0, len(t_ms), subsample),
+        interval=20 * subsample,
+        blit=True,
+    )
+    anim.save(f"{results_dir}/animation.mp4")
