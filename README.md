@@ -15,7 +15,10 @@ uv venv && source .venv/bin/activate
 
 Then install dependencies and the source code `cleo_pe1` (PE1 refers to prospective experiment 1) package:
 ```bash
-uv pip install .
+# exact dependencies used to produce figure
+uv sync && uv pip install -e .
+# flexible dependency resolution, if updated dependencies are desired
+uv pip install -e .
 ```
 
 Run simulations and produce figure with [Task](https://taskfile.dev/) (a modern Make alternative):
