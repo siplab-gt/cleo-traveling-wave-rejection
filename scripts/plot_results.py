@@ -1,7 +1,7 @@
 # %%
 import argparse
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import cleo
 import matplotlib.pyplot as plt
@@ -45,7 +45,6 @@ data_delay = np.load(args.delay / "data.npz")
 
 with open(args.opto_on / "config.pkl", "rb") as f:
     cfg = pickle.load(f)
-    print(cfg)
 
 light_473nm = "#72b5f2"
 light_473nm_dark = "#265a82"
