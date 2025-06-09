@@ -6,7 +6,7 @@ vars:
 tasks:
   run_sims:
     desc: "Run all simulations"
-    cmds:
+    deps:
       - task: run_sim
         vars: { opto: "--opto", delay_ms: 0, outdir: "opto_on_delay0ms" }
       - task: run_sim
@@ -23,7 +23,7 @@ tasks:
     internal: true
     label: "run sim {{.outdir}}"
     cmds:
-      - python scripts/run_sim.py {{.opto}} --delay_ms {{.delay_ms}}
+      - python scripts/run_sim.py {{.opto}} --delay_ms {{.delay_ms}} > results/{{.outdir}}/run.log 2>&1
     sources:
       - scripts/run_sim.py
       - src/cleo_pe1/config.py
@@ -34,9 +34,9 @@ tasks:
   plot_results:
     cmds:
       - python scripts/plot_results.py
-        --opto_on results/opto_on_delay0ms/data.npz
-        --opto_off results/opto_off/data.npz
-        --delay results/opto_on_delay{{.delay_ms}}ms/data.npz
+        --opto_on results/opto_on_delay0ms
+        --opto_off results/opto_off
+        --delay results/opto_on_delay{{.delay_ms}}ms
     desc: "Combine results into a plot"
     deps:
       - run_sims

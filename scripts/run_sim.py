@@ -14,6 +14,7 @@ import cleo
 import cleo.utilities
 import matplotlib.pyplot as plt
 from brian2 import np
+
 from cleo_pe1 import config, model
 
 b2.prefs.codegen.target = "numpy"
@@ -25,7 +26,7 @@ t_start = time.time()
 # %%
 # cfg = config.SimulationConfig(exc_v_init_lim=(0, 0), inh_exc_w_ratio=2)
 # realistic
-cfg = config.realistic_cfg(exc_v_init_lim=(0, 0), inh_exc_w_ratio=1)
+cfg = config.realistic_cfg(exc_v_init_lim=(0, 0))
 cfg.w_base *= 5
 
 if __name__ == "__main__":
@@ -50,7 +51,8 @@ if __name__ == "__main__":
     cfg.delay_ms = args.delay_ms
     cfg.seed = args.seed
 
-cfg.save_to_file()
+cfg.save_to_txt()
+cfg.save_to_pkl()
 b2.seed(cfg.seed)
 np.random.seed(cfg.seed)
 cleo.utilities.set_seed(cfg.seed)
@@ -73,10 +75,11 @@ fiber = cleo.light.Light(
     name="fiber",
 )
 
-spikes = cleo.ephys.SortedSpiking(
+spikes = cleo.ephys.MultiUnitActivity(
     name="spikes",
-    r_perfect_detection=25 * b2.um,
-    r_half_detection=50 * b2.um,
+    # 105 μm rnf yields 50% detection at 50 μm as before
+    r_noise_floor=200 * b2.um,
+    collision_prob_fn=lambda dt: np.zeros(np.shape(dt)),
 )
 probe = cleo.ephys.Probe([1.75, 1.75, 0.5] * b2.mm)
 probe.add_signals(spikes)
@@ -112,21 +115,18 @@ spike_vals = []
 
 class ReactiveLoopOpto(cleo.ioproc.LatencyIOProcessor):
     def __init__(self):
-        super().__init__(sample_period=0.2 * b2.ms)
+        super().__init__(sample_period=0.5 * b2.ms)
 
     # since this is open-loop, we don't use state_dict
     def process(self, state_dict, t_samp):
         i, t, z_t = state_dict["Probe"]["spikes"]
-        if np.size(i) >= cfg.ctrl_thresh:
-            if cfg.opto_on:
-                opto_intensity = 0.15
-            else:
-                opto_intensity = 0
+        if len(i) >= cfg.ctrl_thresh and cfg.opto_on:
+            opto_intensity = 0.15
         else:
             opto_intensity = 0
         stim_vals.append(opto_intensity)
         stim_t.append(t_samp / b2.ms)
-        spike_vals.append(np.size(i))
+        spike_vals.append(len(i))
         opto_intensity *= b2.mwatt / b2.mm2
         # return output dict and time
         return ({"fiber": opto_intensity}, t_samp + cfg.delay_ms * b2.ms)
@@ -150,6 +150,7 @@ sim.run(runtime, namespace=asdict(cfg))
 # plt.close()
 # print(sim.network.t)
 t_end = time.time()
+print("Total spikes:", len(spikes.i))
 print(f"Time elapsed: {t_end - t_start:.1f} seconds")
 
 # %%
@@ -216,4 +217,6 @@ if cfg.generate_video:
 # %%
 # save copy of results folder
 timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-shutil.copytree(cfg.results_dir, cfg.results_base_dir / timestamp)
+shutil.copytree(
+    cfg.results_dir, cfg.results_base_dir / (timestamp + "_" + cfg.exp_name)
+)
