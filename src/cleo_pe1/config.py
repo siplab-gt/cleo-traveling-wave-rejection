@@ -1,3 +1,4 @@
+import pickle
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -14,7 +15,7 @@ class SimulationConfig:
     generate_3d_video: bool = False
     target: str = "numpy"
     seed: int = 18051844
-    ctrl_thresh: int = 2
+    ctrl_thresh: int = 1
 
     # underlying model
     p0: float = 0.1  # for weak connections
@@ -48,12 +49,15 @@ class SimulationConfig:
     stim_duration: b2.Quantity = field(default_factory=lambda: 2 * b2.ms)
 
     @property
-    def results_dir(self):
+    def exp_name(self):
         if self.opto_on:
-            exp_name = f"opto_on_delay{self.delay_ms}ms"
+            return f"opto_on_delay{self.delay_ms}ms"
         else:
-            exp_name = "opto_off"
-        results_dir = self.results_base_dir / exp_name
+            return "opto_off"
+
+    @property
+    def results_dir(self):
+        results_dir = self.results_base_dir / self.exp_name
         if not results_dir.exists():
             results_dir.mkdir(parents=True)
         return results_dir
@@ -66,9 +70,13 @@ class SimulationConfig:
     def sigma_strong(self):
         return self.sigma_strong_no_len * self.unit_len
 
-    def save_to_file(self):
+    def save_to_txt(self):
         with open(self.results_dir / "config.txt", "w") as f:
             f.write(str(asdict(self)).replace(", ", ",\n"))
+
+    def save_to_pkl(self):
+        with open(self.results_dir / "config.pkl", "wb") as f:
+            pickle.dump(self, f)
 
 
 def realistic_cfg(**kwargs):

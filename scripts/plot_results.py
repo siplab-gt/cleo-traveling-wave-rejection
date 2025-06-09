@@ -1,5 +1,7 @@
 # %%
 import argparse
+import pickle
+from pathlib import Path
 
 import cleo
 import matplotlib.pyplot as plt
@@ -14,24 +16,35 @@ if __name__ == "__main__":
         description="Plot comparison of spiking data with and without optogenetic stimulation."
     )
     parser.add_argument(
-        "--opto_on", type=str, required=True, help="Path to the opto on data file."
+        "--opto_on",
+        type=Path,
+        required=True,
+        help="Path to the opto on data folder.",
+        default="results/opto_on_delay0ms",
     )
     parser.add_argument(
-        "--opto_off", type=str, required=True, help="Path to the opto off data file."
+        "--opto_off",
+        type=Path,
+        required=True,
+        help="Path to the opto off data folder.",
+        default="results/opto_off",
     )
     parser.add_argument(
-        "--delay", type=str, required=True, help="Path to the delay data file."
+        "--delay",
+        type=Path,
+        required=True,
+        help="Path to the delay data folder.",
+        default="results/opto_on_delay3ms",
     )
 
     args = parser.parse_args()
 
-    data_opto_on = np.load(args.opto_on)
-    data_opto_off = np.load(args.opto_off)
-    data_delay = np.load(args.delay)
-else:
-    data_opto_on = np.load("results/opto_on_delay0ms/data.npz")
-    data_opto_off = np.load("results/opto_off/data.npz")
-    data_delay = np.load("results/opto_on_delay3ms/data.npz")
+data_opto_on = np.load(args.opto_on / "data.npz")
+data_opto_off = np.load(args.opto_off / "data.npz")
+data_delay = np.load(args.delay / "data.npz")
+
+with open(args.opto_on / "config.pkl", "rb") as f:
+    cfg = pickle.load(f)
 
 light_473nm = "#72b5f2"
 light_473nm_dark = "#265a82"
@@ -202,7 +215,7 @@ for data, row in [(data_opto_on, 2), (data_delay, 4)]:
             start,
             end,
             color=light_473nm,
-            label="stimulation triggered when ≥2 spikes detected",
+            label=f"stimulation triggered when ≥{cfg.ctrl_thresh} spikes detected",
         )
 
 ax_stim.legend(
