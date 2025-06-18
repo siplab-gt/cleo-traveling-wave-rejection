@@ -40,6 +40,9 @@ class SimulationConfig:
     g_inh: b2.Quantity = field(default_factory=lambda: b2.siemens)
     C_exc: b2.Quantity = field(default_factory=lambda: b2.farad)
     C_inh: b2.Quantity = field(default_factory=lambda: b2.farad)
+    v_rest: b2.Quantity = field(default_factory=lambda: 0 * b2.volt)
+    exc_v_reset: b2.Quantity = field(default_factory=lambda: -5 * b2.volt)
+    inh_v_reset: b2.Quantity = field(default_factory=lambda: 0 * b2.volt)
     exc_v_init_lim: tuple = (-0.5, 1)
     exc_thresh_lim: tuple = (0.5, 2)
     inh_v_init_lim: tuple = (-0.5, 0.5)
@@ -87,6 +90,13 @@ def realistic_cfg(**kwargs):
     }
     params["C_exc"] = tau * params["g_exc"]
     params["C_inh"] = tau * params["g_inh"]
-    params["w_base"] = 5.969e-7
-    params["strong_weak_ratio"] = 0.109
+    params["w_base"] = 1.1546319456101628e-08
+    params["strong_weak_ratio"] = 0.1220703125
+    params["v_rest"] = -70 * b2.mvolt
+    params["exc_v_reset"] = -170 * b2.mvolt
+    params["inh_v_reset"] = -70 * b2.mvolt
+    params["exc_v_init_lim"] = (-80, -50)
+    params["exc_thresh_lim"] = (-60, -30)
+    params["inh_v_init_lim"] = (-80, -60)
+    params["inh_thresh_lim"] = (-70, -50)
     return SimulationConfig(**(params | kwargs))

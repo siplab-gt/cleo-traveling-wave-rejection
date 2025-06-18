@@ -23,10 +23,9 @@ cleo.utilities.style_plots_for_paper()
 # %%
 t_start = time.time()
 
-# %%
-# cfg = config.SimulationConfig(exc_v_init_lim=(0, 0), inh_exc_w_ratio=2)
-# realistic
-cfg = config.realistic_cfg(exc_v_init_lim=(0, 0))
+# setting initial potential of all neurons to resting potential for cleaner graph
+cfg = config.realistic_cfg(exc_v_init_lim=(-70, -70))
+
 cfg.w_base *= 5
 
 if __name__ == "__main__":
@@ -137,7 +136,6 @@ sim.set_io_processor(ReactiveLoopOpto())
 if cfg.generate_3d_video:
     vv = cleo.viz.VideoVisualizer(dt=0.5 * b2.ms, devices_to_plot=[probe, fiber])
     sim.inject(vv, ng_exc)
-
 
 # %%
 runtime = 20 * b2.ms
