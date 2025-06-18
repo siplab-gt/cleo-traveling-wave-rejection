@@ -5,7 +5,7 @@ from brian2 import np
 
 from cleo_pe1.config import SimulationConfig
 
-exceqs = """dv/dt = (I_summed - v*g_exc)/C_exc : volt
+exceqs = """dv/dt = (I_summed - (v - v_rest)*g_exc)/C_exc : volt
 I_summed = I_stim + I_exc_strong + I_exc_weak + I_inh + I_opto : amp
 I_opto : amp
 stimulated = sqrt(x**2 + y**2) < stim_radius : boolean
@@ -23,7 +23,7 @@ y = .05*((i%100.0) - 50)*mmeter : meter
 z: meter
 thresh: volt"""
 
-inheqs = """dv/dt = (I_stim + I_exc - v*g_inh)/C_inh :volt
+inheqs = """dv/dt = (I_stim + I_exc - (v - v_rest)*g_inh)/C_inh :volt
 # I_stim = stimulus_inh(t,i)*amp : amp
 I_stim : amp
 I_exc: amp
@@ -54,24 +54,24 @@ def load_model(cfg: SimulationConfig):
         cfg.N_exc,
         exceqs,
         threshold="v > thresh",
-        reset="v = -5*volt",
+        reset="v = exc_v_reset",
     )
     ng_inh = b2.NeuronGroup(
         cfg.N_inh,
         inheqs,
         threshold="v > thresh",
-        reset="v = 0*volt",
+        reset="v = inh_v_reset",
     )
 
     ng_exc.z = rng.uniform(0.45, 0.55, cfg.N_exc) * b2.mm
     ng_exc.individual_stim_strength = rng.uniform(0, 1, cfg.N_exc)
 
     # Initial conditions and firing thresholds for neurons
-    ng_exc.v = rng.uniform(*cfg.exc_v_init_lim, cfg.N_exc) * b2.volt
-    ng_exc.thresh = rng.uniform(*cfg.exc_thresh_lim, cfg.N_exc) * b2.volt
+    ng_exc.v = rng.uniform(*cfg.exc_v_init_lim, cfg.N_exc) * b2.mvolt
+    ng_exc.thresh = rng.uniform(*cfg.exc_thresh_lim, cfg.N_exc) * b2.mvolt
 
-    ng_inh.v = rng.uniform(*cfg.inh_v_init_lim, cfg.N_inh) * b2.volt
-    ng_inh.thresh = rng.uniform(*cfg.inh_thresh_lim, cfg.N_inh) * b2.volt
+    ng_inh.v = rng.uniform(*cfg.inh_v_init_lim, cfg.N_inh) * b2.mvolt
+    ng_inh.thresh = rng.uniform(*cfg.inh_thresh_lim, cfg.N_inh) * b2.mvolt
 
     # synapses
     syn_e2e_weak = b2.Synapses(

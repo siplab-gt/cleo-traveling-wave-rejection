@@ -126,8 +126,8 @@ def plot_movie(results_dir, subsample=1):
     fig, ax = plt.subplots()
     im = ax.imshow(
         v[:, 0].reshape(X.shape),
-        vmin=0,
-        vmax=1,
+        vmin=-0.08,
+        vmax=-0.04,
         origin="lower",
         extent=[X.min(), X.max(), Y.min(), Y.max()],
         interpolation="nearest",
